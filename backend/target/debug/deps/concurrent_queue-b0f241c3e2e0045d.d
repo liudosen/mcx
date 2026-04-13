@@ -1,0 +1,11 @@
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\concurrent_queue-b0f241c3e2e0045d.d: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\bounded.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\single.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\unbounded.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\sync.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libconcurrent_queue-b0f241c3e2e0045d.rlib: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\bounded.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\single.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\unbounded.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\sync.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libconcurrent_queue-b0f241c3e2e0045d.rmeta: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\bounded.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\single.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\unbounded.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\sync.rs
+
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\lib.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\bounded.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\single.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\unbounded.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\concurrent-queue-2.5.0\src\sync.rs:

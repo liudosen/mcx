@@ -1,0 +1,17 @@
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\thiserror_impl-767224d935be6434.d: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\ast.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\attr.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\expand.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\fallback.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\fmt.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\generics.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\prop.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\scan_expr.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\unraw.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\valid.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\thiserror_impl-767224d935be6434.dll: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\ast.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\attr.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\expand.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\fallback.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\fmt.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\generics.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\prop.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\scan_expr.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\unraw.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\valid.rs
+
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\lib.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\ast.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\attr.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\expand.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\fallback.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\fmt.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\generics.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\prop.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\scan_expr.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\unraw.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-impl-2.0.18\src\valid.rs:
+
+# env-dep:CARGO_PKG_VERSION_PATCH=18

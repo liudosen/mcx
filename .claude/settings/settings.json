@@ -1,0 +1,68 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash:cargo **",
+      "Bash:rustc **",
+      "Bash:git **",
+      "Bash:docker **",
+      "Bash:curl **",
+      "Bash:mkdir **",
+      "Bash:rm **",
+      "Bash:cat **",
+      "Bash:echo **",
+      "Bash:grep **",
+      "Bash:sed **",
+      "Bash:date **",
+      "Bash:sleep **",
+      "Bash:kill **",
+      "Bash:ps **",
+      "Bash:jobs **",
+      "Bash:fg **",
+      "Bash:cd backend && **",
+      "Bash:cd /root/workspace/welfare-store && **"
+    ]
+  },
+  "model": "claude-opus-4-6",
+  "maxTokens": 8000,
+  "temperature": 0.0,
+  "customCommands": {
+    "todo": "commands/todo.md",
+    "tasks": "commands/tasks.md",
+    "background": "commands/background.md",
+    "plan": "commands/plan.md",
+    "tdd": "commands/tdd.md",
+    "review": "commands/review.md",
+    "security": "commands/security.md"
+  },
+  "skills": {
+    "autoLoad": false,
+    "index": "skills/_index.md",
+    "onDemand": true
+  },
+  "hooks": {
+    "postTask": "hooks/post-task.sh",
+    "sessionStart": "hooks/session-start.md",
+    "sessionEnd": "hooks/session-end.md",
+    "subagent": "hooks/subagent.md"
+  },
+  "taskSystem": {
+    "enabled": true,
+    "todoFile": ".claude/tasks/TODO.md",
+    "metaFile": ".claude/tasks/meta.json"
+  },
+  "subagentSystem": {
+    "enabled": true,
+    "registry": ".claude/subagents/_registry.json",
+    "workspaceBase": ".claude/subagents"
+  },
+  "backgroundTasks": {
+    "enabled": true,
+    "config": ".claude/background/_config.json"
+  },
+  "contextCompact": {
+    "enabled": true,
+    "threshold": 20,
+    "mediumThreshold": 50,
+    "heavyThreshold": 100
+  }
+}

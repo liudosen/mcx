@@ -1,0 +1,12 @@
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\rand_core-6f7f116762057ce8.d: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\block.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\error.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\impls.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\le.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\os.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\librand_core-6f7f116762057ce8.rlib: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\block.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\error.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\impls.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\le.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\os.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\librand_core-6f7f116762057ce8.rmeta: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\block.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\error.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\impls.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\le.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\os.rs
+
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\lib.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\block.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\error.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\impls.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\le.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\rand_core-0.6.4\src\os.rs:

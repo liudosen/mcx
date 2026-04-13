@@ -1,0 +1,11 @@
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\winapi_util-fe7c3769cf72495c.d: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\console.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\file.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\sysinfo.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\win.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libwinapi_util-fe7c3769cf72495c.rlib: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\console.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\file.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\sysinfo.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\win.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libwinapi_util-fe7c3769cf72495c.rmeta: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\console.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\file.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\sysinfo.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\win.rs
+
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\lib.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\console.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\file.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\sysinfo.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\winapi-util-0.1.11\src\win.rs:

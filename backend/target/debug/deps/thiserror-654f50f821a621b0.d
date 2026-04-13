@@ -1,0 +1,14 @@
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\thiserror-654f50f821a621b0.d: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\aserror.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\display.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\var.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\private.rs C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\build\thiserror-3412fd36ecd9b4c1\out/private.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libthiserror-654f50f821a621b0.rlib: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\aserror.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\display.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\var.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\private.rs C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\build\thiserror-3412fd36ecd9b4c1\out/private.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libthiserror-654f50f821a621b0.rmeta: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\aserror.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\display.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\var.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\private.rs C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\build\thiserror-3412fd36ecd9b4c1\out/private.rs
+
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\lib.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\aserror.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\display.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\var.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\thiserror-2.0.18\src\private.rs:
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\build\thiserror-3412fd36ecd9b4c1\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\Administrator\\Desktop\\welfare-store\\backend\\target\\debug\\build\\thiserror-3412fd36ecd9b4c1\\out

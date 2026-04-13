@@ -1,0 +1,11 @@
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\ppv_lite86-93be2f5566826a4d.d: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\soft.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\types.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\x86_64\mod.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\x86_64\sse2.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libppv_lite86-93be2f5566826a4d.rlib: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\soft.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\types.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\x86_64\mod.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\x86_64\sse2.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libppv_lite86-93be2f5566826a4d.rmeta: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\soft.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\types.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\x86_64\mod.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\x86_64\sse2.rs
+
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\lib.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\soft.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\types.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\x86_64\mod.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\ppv-lite86-0.2.21\src\x86_64\sse2.rs:

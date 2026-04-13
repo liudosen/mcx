@@ -1,0 +1,1 @@
+ALTER TABLE orders ADD COLUMN address_id BIGINT UNSIGNED NULL COMMENT '收货地址ID' AFTER user_id;

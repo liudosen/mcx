@@ -1,0 +1,10 @@
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\proc_macro2_diagnostics-adac9835708b874e.d: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\ext.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\diagnostic.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\line.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libproc_macro2_diagnostics-adac9835708b874e.rlib: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\ext.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\diagnostic.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\line.rs
+
+C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\deps\libproc_macro2_diagnostics-adac9835708b874e.rmeta: E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\lib.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\ext.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\diagnostic.rs E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\line.rs
+
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\lib.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\ext.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\diagnostic.rs:
+E:\rust\cargo\registry\src\mirrors.ustc.edu.cn-38d0e5eb5da2abae\proc-macro2-diagnostics-0.10.1\src\line.rs:
