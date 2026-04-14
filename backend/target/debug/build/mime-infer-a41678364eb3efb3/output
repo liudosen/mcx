@@ -1,1 +1,0 @@
-cargo:rustc-env=MIME_TYPES_GENERATED_PATH=C:\Users\Administrator\Desktop\welfare-store\backend\target\debug\build\mime-infer-a41678364eb3efb3\out\mime_types_generated.rs
