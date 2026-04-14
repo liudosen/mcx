@@ -1,0 +1,73 @@
+# mcx-system Linux Builder
+# Uses glibc target for C++ compatibility (ddddocr/ort dependencies)
+# Builds a dynamically linked binary for Debian-based systems
+
+# ============================================
+# Stage 1: Build Environment
+# ============================================
+FROM rust:1.88-bookworm AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    protobuf-compiler \
+    build-essential \
+    perl \
+    cmake \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# ============================================
+# Stage 2: Cache Dependencies
+# ============================================
+# Copy manifests first for better caching
+COPY Cargo.toml Cargo.lock* ./
+
+# Create dummy source to build dependencies
+RUN mkdir -p src && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "pub fn dummy() {}" > src/lib.rs
+
+# Build dependencies only (this layer will be cached)
+RUN cargo build --release
+
+# ============================================
+# Stage 3: Build Application
+# ============================================
+# Remove dummy source
+RUN rm -rf src/
+
+# Copy actual source code
+COPY src ./src
+COPY migrations ./migrations
+
+# Touch main.rs to invalidate cache and rebuild binary
+RUN touch src/main.rs
+
+# Build the actual binary
+RUN cargo build --release
+
+# ============================================
+# Stage 4: Runtime Image
+# ============================================
+FROM debian:bookworm-slim AS runtime
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy the binary
+COPY --from=builder /build/target/release/mcx-system /app/mcx-system
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Set the entrypoint
+ENTRYPOINT ["/app/mcx-system"]

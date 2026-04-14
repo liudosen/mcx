@@ -46,6 +46,6 @@ The repo also contains a `frontend/` app and deployment helpers under
 
 - Generated artifacts such as `target/`, `logs/`, and `cargo-run.*` files are
   disposable.
-- The old `.claude/` helper tree has been retired in favor of this file.
+- The old `.Codex/` helper tree has been retired in favor of this file.
 - If a task touches deployment behavior, update `deploy.ps1` first so the
   workflow stays in one place.

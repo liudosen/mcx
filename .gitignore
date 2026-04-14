@@ -1,1 +1,37 @@
-/target
+# Rust build outputs
+/target/
+/**/target/
+
+# Runtime logs
+/logs/
+/**/logs/
+*.log
+
+# Release bundles and binaries
+/release/
+/**/release/
+*.tar.gz
+*.zip
+*.exe
+*.pdb
+*.dll
+*.so
+*.dylib
+
+# Frontend and portal build artifacts
+/dist/
+/**/dist/
+/node_modules/
+/**/node_modules/
+
+# Environment files
+.env
+.env.*
+backend/.env
+frontend/.env
+portal-ai-frontend/.env
+
+# Local IDE metadata
+.idea/
+.vscode/
+

@@ -1,9 +1,0 @@
-{
-  "version": "1.0",
-  "queue_dir": ".claude/background/queue",
-  "running_dir": ".claude/background/running",
-  "completed_dir": ".claude/background/completed",
-  "failed_dir": ".claude/background/failed",
-  "log_max_lines": 10000,
-  "default_timeout": "30m"
-}
