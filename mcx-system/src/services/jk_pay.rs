@@ -457,7 +457,7 @@ async fn do_jk_pay(
 
         // Step 1: Get jk.cn order number
         let order_no_started = Instant::now();
-        let (order_no, data) = fetch_order_no(&jk, &wtk).await?;
+        let data = fetch_order_no(&jk, &wtk).await?;
         tracing::info!(
             "[JK Pay] getStoreAndOrderNo attempt={} elapsed_ms={}",
             attempt + 1,
@@ -481,6 +481,8 @@ async fn do_jk_pay(
             }
             return Err(format!("获取订单号失败(code={}): {}", stat_code, data));
         }
+
+        let order_no = extract_order_no(&data)?;
 
         tracing::info!("[JK Pay] orderNo={}", order_no);
 
@@ -588,28 +590,27 @@ fn build_trade_line(amount_yuan: f64) -> Value {
     })
 }
 
-async fn fetch_order_no(jk: &JkClient, wtk: &str) -> Result<(String, Value), String> {
-    let data = jk
-        .api(
-            "baize.getStoreAndOrderNo",
-            &[("req", "{}"), ("sellerId", SELLER_ID)],
-            wtk,
-        )
-        .await?;
-
+fn extract_order_no(data: &Value) -> Result<String, String> {
     let content = data
         .get("content")
         .and_then(|c| c.as_array())
         .and_then(|a| a.first())
         .ok_or_else(|| format!("获取订单号失败: {}", data))?;
 
-    let order_no = content
+    content
         .get("orderNo")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| "no orderNo".to_string())?
-        .to_string();
+        .map(|s| s.to_string())
+        .ok_or_else(|| format!("获取订单号失败: {}", data))
+}
 
-    Ok((order_no, data))
+async fn fetch_order_no(jk: &JkClient, wtk: &str) -> Result<Value, String> {
+    jk.api(
+        "baize.getStoreAndOrderNo",
+        &[("req", "{}"), ("sellerId", SELLER_ID)],
+        wtk,
+    )
+    .await
 }
 
 async fn query_payment_channel(

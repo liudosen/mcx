@@ -37,6 +37,21 @@ fn env_required(name: &str) -> Result<String, env::VarError> {
     Ok(value)
 }
 
+fn allow_dev_wechat_openid() -> bool {
+    if cfg!(debug_assertions) {
+        return true;
+    }
+
+    matches!(
+        env::var("APP_ENV")
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase()
+            .as_str(),
+        "dev" | "development" | "local"
+    )
+}
+
 fn build_mysql_url() -> Result<String, env::VarError> {
     let host = env_or_default("DATABASE_HOST", "127.0.0.1");
     let port = env_or_default("DATABASE_PORT", "3306");
@@ -102,14 +117,21 @@ impl Config {
             bcrypt_cost: env_or_default("BCRYPT_COST", "12").parse().unwrap_or(12),
             wechat_appid: env_required("WEIXIN_APPID")?,
             wechat_secret: env_required("WEIXIN_SECRET")?,
-            dev_wechat_openid: env::var("DEV_WECHAT_OPENID").ok().and_then(|v| {
-                let trimmed = v.trim().to_string();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(trimmed)
+            dev_wechat_openid: if allow_dev_wechat_openid() {
+                env::var("DEV_WECHAT_OPENID").ok().and_then(|v| {
+                    let trimmed = v.trim().to_string();
+                    if trimmed.is_empty() {
+                        None
+                    } else {
+                        Some(trimmed)
+                    }
+                })
+            } else {
+                if env::var("DEV_WECHAT_OPENID").ok().is_some() {
+                    eprintln!("DEV_WECHAT_OPENID is ignored outside development mode");
                 }
-            }),
+                None
+            },
             jk_seller_username: env_required("JK_SELLER_USERNAME")?,
             jk_seller_password: env_required("JK_SELLER_PASSWORD")?,
             oss_endpoint: env_required("OSS_ENDPOINT")?,

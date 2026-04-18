@@ -1,5 +1,6 @@
 use crate::error::AppError;
-use crate::routes::admin::auth::check_admin;
+use crate::routes::admin::auth::authorize_admin;
+use crate::routes::admin::permissions::PRODUCT_LIST_VIEW;
 use crate::routes::ApiResponse;
 use crate::state::AppState;
 use axum::{extract::Path, extract::State, Json};
@@ -11,7 +12,7 @@ pub async fn list_products(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<Vec<Product>>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[PRODUCT_LIST_VIEW]).await?;
 
     let products = sqlx::query_as::<_, Product>("SELECT * FROM products ORDER BY id")
         .fetch_all(&state.db)
@@ -25,7 +26,7 @@ pub async fn get_product(
     headers: axum::http::HeaderMap,
     Path(id): Path<u64>,
 ) -> Result<Json<ApiResponse<Product>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[PRODUCT_LIST_VIEW]).await?;
 
     let product = sqlx::query_as::<_, Product>("SELECT * FROM products WHERE id = ?")
         .bind(id)
@@ -41,7 +42,7 @@ pub async fn create_product(
     headers: axum::http::HeaderMap,
     Json(body): Json<CreateProductRequest>,
 ) -> Result<Json<ApiResponse<Product>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[PRODUCT_LIST_VIEW]).await?;
 
     if body.name.is_empty() {
         return Err(AppError::BadRequest(
@@ -114,7 +115,7 @@ pub async fn update_product(
     Path(id): Path<u64>,
     Json(body): Json<UpdateProductRequest>,
 ) -> Result<Json<ApiResponse<Product>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[PRODUCT_LIST_VIEW]).await?;
 
     let existing = sqlx::query_as::<_, Product>("SELECT * FROM products WHERE id = ?")
         .bind(id)
@@ -164,7 +165,7 @@ pub async fn delete_product(
     headers: axum::http::HeaderMap,
     Path(id): Path<u64>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[PRODUCT_LIST_VIEW]).await?;
 
     let result = sqlx::query("DELETE FROM products WHERE id = ?")
         .bind(id)

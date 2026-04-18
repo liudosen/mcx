@@ -1,6 +1,7 @@
 use crate::error::AppError;
 use crate::logging::LoggingConfig;
-use crate::routes::admin::auth::check_admin;
+use crate::routes::admin::auth::authorize_admin;
+use crate::routes::admin::permissions::LOGS_VIEW;
 use crate::routes::ApiResponse;
 use crate::state::AppState;
 use axum::{
@@ -8,7 +9,7 @@ use axum::{
     http::HeaderMap,
     Json,
 };
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset, Offset, Utc};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::VecDeque,
@@ -52,7 +53,7 @@ pub async fn get_recent_logs(
     headers: HeaderMap,
     Query(query): Query<LogQuery>,
 ) -> Result<Json<ApiResponse<LogViewerData>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[LOGS_VIEW]).await?;
 
     let limit = query.limit.unwrap_or(200).clamp(10, 1000);
     let kind = query.kind.unwrap_or(LogKind::App);
@@ -140,12 +141,14 @@ fn resolve_latest_daily_log(log_root: &PathBuf, file_prefix: &str) -> Option<Pat
 
     candidates
         .into_iter()
-        .max_by(|(date_a, modified_a, path_a), (date_b, modified_b, path_b)| {
-            date_a
-                .cmp(date_b)
-                .then_with(|| modified_a.cmp(modified_b))
-                .then_with(|| path_a.cmp(path_b))
-        })
+        .max_by(
+            |(date_a, modified_a, path_a), (date_b, modified_b, path_b)| {
+                date_a
+                    .cmp(date_b)
+                    .then_with(|| modified_a.cmp(modified_b))
+                    .then_with(|| path_a.cmp(path_b))
+            },
+        )
         .map(|(_, _, path)| path)
 }
 
@@ -198,7 +201,7 @@ fn read_recent_lines(
     let modified_at = metadata.modified().ok().map(|time| {
         let dt_utc: DateTime<Utc> = time.into();
         dt_utc
-            .with_timezone(&FixedOffset::east_opt(8 * 3600).expect("valid UTC+8 offset"))
+            .with_timezone(&FixedOffset::east_opt(8 * 3600).unwrap_or_else(|| Utc.fix()))
             .format("%Y-%m-%d %H:%M:%S")
             .to_string()
     });
@@ -231,7 +234,8 @@ fn read_recent_lines(
         exists: true,
         size_bytes: metadata.len(),
         modified_at,
-        lines: lines.into_iter().collect(),
+        // Return newest entries first so the log center shows the latest events at the top.
+        lines: lines.into_iter().rev().collect(),
     })
 }
 

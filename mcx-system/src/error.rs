@@ -7,45 +7,39 @@ use serde_json::json;
 
 #[derive(thiserror::Error, Debug)]
 pub enum AppError {
-    #[error("账户或密码错误")]
+    #[error("invalid credentials")]
     InvalidCredentials,
 
-    #[error("账户或密码错误")]
-    UserNotFound,
-
-    #[error("账户已被禁用")]
-    UserInactive,
-
-    #[error("无效的令牌")]
+    #[error("invalid token")]
     InvalidToken,
 
     #[allow(dead_code)]
-    #[error("令牌已过期")]
+    #[error("token expired")]
     TokenExpired,
 
-    #[error("登录已过期，请重新登录")]
+    #[error("wechat token expired")]
     WechatTokenExpired,
 
-    #[error("权限不足")]
+    #[error("permission denied")]
     PermissionDenied,
 
-    #[error("资源不存在")]
+    #[error("resource not found: {0}")]
     NotFound(String),
 
-    #[error("请求参数错误")]
+    #[error("bad request: {0}")]
     BadRequest(String),
 
     #[allow(dead_code)]
-    #[error("服务器内部错误")]
+    #[error("internal server error: {0}")]
     InternalError(String),
 
-    #[error("数据库错误")]
+    #[error("database error")]
     DatabaseError(#[from] sqlx::Error),
 
-    #[error("令牌验证失败")]
+    #[error("jwt error")]
     JwtError(#[from] jsonwebtoken::errors::Error),
 
-    #[error("密码处理失败")]
+    #[error("bcrypt error")]
     BcryptError(#[from] bcrypt::BcryptError),
 }
 
@@ -53,8 +47,6 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, code, message) = match &self {
             AppError::InvalidCredentials => (StatusCode::UNAUTHORIZED, 401, self.to_string()),
-            AppError::UserNotFound => (StatusCode::NOT_FOUND, 404, self.to_string()),
-            AppError::UserInactive => (StatusCode::FORBIDDEN, 403, self.to_string()),
             AppError::InvalidToken => (StatusCode::UNAUTHORIZED, 401, self.to_string()),
             AppError::TokenExpired => (StatusCode::UNAUTHORIZED, 401, self.to_string()),
             AppError::WechatTokenExpired => (StatusCode::UNAUTHORIZED, 401, self.to_string()),

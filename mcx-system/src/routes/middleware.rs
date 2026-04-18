@@ -7,6 +7,10 @@ use axum::{
 use std::time::Instant;
 use uuid::Uuid;
 
+fn should_skip_request_log(path: &str) -> bool {
+    path == "/api/admin/logs/recent"
+}
+
 fn request_user_label(req: &Request, jwt_secret: &str) -> String {
     let path = req.uri().path();
     if path.starts_with("/api/mini") || path.starts_with("/api/goods") {
@@ -50,6 +54,16 @@ pub async fn request_log_middleware(
     let user = request_user_label(&req, &jwt_secret);
     let started = Instant::now();
 
+    if should_skip_request_log(&path) {
+        let mut response = next.run(req).await;
+
+        if let Ok(value) = HeaderValue::from_str(&request_id) {
+            response.headers_mut().insert("x-request-id", value);
+        }
+
+        return response;
+    }
+
     tracing::info!(
         request_id = %request_id,
         method = %method,
@@ -74,4 +88,20 @@ pub async fn request_log_middleware(
     );
 
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_skip_request_log;
+
+    #[test]
+    fn skips_log_query_endpoint() {
+        assert!(should_skip_request_log("/api/admin/logs/recent"));
+    }
+
+    #[test]
+    fn keeps_other_routes_logged() {
+        assert!(!should_skip_request_log("/api/admin/logs"));
+        assert!(!should_skip_request_log("/api/admin/logs/recent/extra"));
+    }
 }

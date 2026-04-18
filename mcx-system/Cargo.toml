@@ -43,6 +43,7 @@ rand = "0.8"
 base64 = "0.22"
 md-5 = "0.10"
 once_cell = "1"
+sha2 = "0.10"
 ddddocr = { git = "https://github.com/86maid/ddddocr.git", branch = "master" }
 
 # Redis

@@ -13,6 +13,7 @@ use axum::{
 };
 use chrono::Utc;
 use serde::Deserialize;
+use sqlx::Executor;
 use std::sync::Arc;
 
 const ORDER_SELECT_SQL: &str = "SELECT id, order_no, external_order_no, user_id, address_id, status, total_amount, paid_amount, discount_amount, remark, created_at, updated_at FROM orders WHERE id = ?";
@@ -80,17 +81,16 @@ struct ResolvedOrderItem {
     subtotal: i64,
 }
 
-async fn fetch_current_balance(state: &AppState, openid: &str) -> Result<i64, AppError> {
+async fn fetch_current_balance_on<'e, E>(executor: E, openid: &str) -> Result<i64, AppError>
+where
+    E: Executor<'e, Database = sqlx::MySql>,
+{
     let balance: i64 = sqlx::query_scalar(
-        "SELECT COALESCE( \
-             (SELECT balance FROM balance_accounts WHERE openid = ?), \
-             (SELECT balance_after FROM balance_transactions WHERE openid = ? ORDER BY id DESC LIMIT 1), \
-             0 \
-         )",
+        "SELECT COALESCE((SELECT balance FROM balance_accounts WHERE openid = ?), (SELECT balance_after FROM balance_transactions WHERE openid = ? ORDER BY id DESC LIMIT 1), 0)",
     )
     .bind(openid)
     .bind(openid)
-    .fetch_one(&state.db)
+    .fetch_one(executor)
     .await?;
 
     Ok(balance)
@@ -101,7 +101,7 @@ async fn fetch_order_row(state: &AppState, order_id: u64) -> Result<OrderRow, Ap
         .bind(order_id)
         .fetch_optional(&state.db)
         .await?
-        .ok_or(AppError::NotFound("订单不存在".to_string()))
+        .ok_or(AppError::NotFound("order not found".to_string()))
 }
 
 async fn fetch_owned_order(
@@ -159,7 +159,7 @@ async fn get_user_id_by_openid(state: &AppState, openid: &str) -> Result<u64, Ap
         .bind(openid)
         .fetch_optional(&state.db)
         .await?
-        .ok_or(AppError::NotFound("用户不存在".to_string()))?;
+        .ok_or(AppError::NotFound("user not found".to_string()))?;
     Ok(user_id)
 }
 
@@ -168,7 +168,7 @@ async fn fetch_user_id_card_number(state: &AppState, openid: &str) -> Result<Str
         .bind(openid)
         .fetch_optional(&state.db)
         .await?
-        .ok_or(AppError::NotFound("用户不存在".to_string()))?;
+        .ok_or(AppError::NotFound("user not found".to_string()))?;
     Ok(row.id_card_number)
 }
 
@@ -183,7 +183,7 @@ async fn ensure_address_owned_by_user(
         .await?;
 
     match owner {
-        None => Err(AppError::NotFound("收货地址不存在".to_string())),
+        None => Err(AppError::NotFound("address not found".to_string())),
         Some(owner_openid) if owner_openid != openid => Err(AppError::PermissionDenied),
         _ => Ok(()),
     }
@@ -194,44 +194,40 @@ async fn resolve_order_item(
     item_req: &crate::models::order::CreateOrderItemReq,
 ) -> Result<ResolvedOrderItem, AppError> {
     if item_req.quantity <= 0 {
-        return Err(AppError::BadRequest("商品数量必须大于0".to_string()));
+        return Err(AppError::BadRequest("鍟嗗搧鏁伴噺蹇呴』澶т簬0".to_string()));
     }
 
     let sku_row: SkuLookup = if let Some(ref sku_id_str) = item_req.sku_id {
         let sku_id: u64 = sku_id_str
             .parse()
-            .map_err(|_| AppError::BadRequest("skuId 格式错误".to_string()))?;
+            .map_err(|_| AppError::BadRequest("skuId 鏍煎紡閿欒".to_string()))?;
         sqlx::query_as::<_, SkuLookup>(
-            "SELECT gs.id, gs.spu_id, gs.sale_price, gs.spec_info, g.title, g.primary_image \
-             FROM goods_skus gs JOIN goods g ON g.id = gs.spu_id \
-             WHERE gs.id = ? AND g.status = 1",
+            "SELECT gs.id, gs.spu_id, gs.sale_price, gs.spec_info, g.title, g.primary_image FROM goods_skus gs JOIN goods g ON g.id = gs.spu_id WHERE gs.id = ? AND g.status = 1",
         )
         .bind(sku_id)
         .fetch_optional(&state.db)
         .await?
         .ok_or(AppError::NotFound(format!(
-            "SKU {} 不存在或商品已下架",
+            "SKU {} not found or product offline",
             sku_id
         )))?
     } else if let Some(ref spu_id_str) = item_req.spu_id {
         let spu_id: u64 = spu_id_str
             .parse()
-            .map_err(|_| AppError::BadRequest("spuId 格式错误".to_string()))?;
+            .map_err(|_| AppError::BadRequest("spuId 鏍煎紡閿欒".to_string()))?;
         sqlx::query_as::<_, SkuLookup>(
-            "SELECT gs.id, gs.spu_id, gs.sale_price, gs.spec_info, g.title, g.primary_image \
-             FROM goods_skus gs JOIN goods g ON g.id = gs.spu_id \
-             WHERE gs.spu_id = ? AND g.status = 1 ORDER BY gs.id LIMIT 1",
+            "SELECT gs.id, gs.spu_id, gs.sale_price, gs.spec_info, g.title, g.primary_image FROM goods_skus gs JOIN goods g ON g.id = gs.spu_id WHERE gs.spu_id = ? AND g.status = 1 ORDER BY gs.id LIMIT 1",
         )
         .bind(spu_id)
         .fetch_optional(&state.db)
         .await?
         .ok_or(AppError::NotFound(format!(
-            "SPU {} 下无可用SKU或商品已下架",
+            "SPU {} has no available SKU or product is offline",
             spu_id
         )))?
     } else {
         return Err(AppError::BadRequest(
-            "每个商品必须提供 skuId 或 spuId".to_string(),
+            "each item must provide skuId or spuId".to_string(),
         ));
     };
 
@@ -311,7 +307,7 @@ pub struct PayOrderResp {
     pub message: String,
 }
 
-/// 小程序：余额支付订单
+/// 灏忕▼搴忥細浣欓鏀粯璁㈠崟
 pub async fn pay_order_with_balance(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
@@ -320,76 +316,108 @@ pub async fn pay_order_with_balance(
 ) -> Result<Json<ApiResponse<BalancePayResp>>, AppError> {
     let openid = validate_wechat_user(&state, &headers).await?;
     let user_id = get_user_id_by_openid(&state, &openid).await?;
-    let current_balance = fetch_current_balance(&state, &openid).await?;
-    let order = fetch_owned_order(&state, id, user_id).await?;
-
-    if order.status != 0 {
-        return Ok(Json(ApiResponse::success(BalancePayResp {
-            success: false,
-            paid_amount: 0,
-            balance_after: current_balance,
-            order_status: Some(order.status as i64),
-            message: "只有待支付的订单才能支付".to_string(),
-        })));
-    }
-
-    if current_balance < order.total_amount {
-        return Ok(Json(ApiResponse::success(BalancePayResp {
-            success: false,
-            paid_amount: 0,
-            balance_after: current_balance,
-            order_status: Some(order.status as i64),
-            message: "余额不足".to_string(),
-        })));
-    }
-
-    let balance_after = current_balance - order.total_amount;
-    let balance_trade_no = build_balance_trade_no(order.id);
-
+    let lock_key = format!("balance_pay:{}", openid);
     let mut tx = state.db.begin().await?;
 
-    sqlx::query(
-        "UPDATE orders SET status = 1, paid_amount = ?, external_order_no = ? WHERE id = ?",
-    )
-    .bind(order.total_amount)
-    .bind(&balance_trade_no)
-    .bind(id)
-    .execute(&mut *tx)
-    .await?;
+    let lock_acquired: Option<i32> = sqlx::query_scalar("SELECT GET_LOCK(?, 5)")
+        .bind(&lock_key)
+        .fetch_one(&mut *tx)
+        .await?;
+    if lock_acquired != Some(1) {
+        tx.rollback().await?;
+        return Err(AppError::BadRequest(
+            "payment lock busy, please retry".to_string(),
+        ));
+    }
 
-    sqlx::query(
-        "INSERT INTO balance_accounts (openid, balance) VALUES (?, ?) \
-         ON DUPLICATE KEY UPDATE balance = VALUES(balance), updated_at = NOW()",
-    )
-    .bind(&openid)
-    .bind(balance_after)
-    .execute(&mut *tx)
-    .await?;
+    let result = async {
+        let order = fetch_owned_order(&state, id, user_id).await?;
+        let current_balance = fetch_current_balance_on(&mut *tx, &openid).await?;
 
-    sqlx::query(
-        "INSERT INTO balance_transactions \
-         (openid, amount, balance_after, `type`, external_order_no, status, remark) \
-         VALUES (?, ?, ?, 2, ?, 1, '订单余额支付')",
-    )
-    .bind(&openid)
-    .bind(order.total_amount)
-    .bind(balance_after)
-    .bind(&balance_trade_no)
-    .execute(&mut *tx)
-    .await?;
+        if order.status != 0 {
+            return Ok(Json(ApiResponse::success(BalancePayResp {
+                success: false,
+                paid_amount: 0,
+                balance_after: current_balance,
+                order_status: Some(order.status as i64),
+                message: "only pending orders can be paid".to_string(),
+            })));
+        }
 
-    tx.commit().await?;
+        if current_balance < order.total_amount {
+            return Ok(Json(ApiResponse::success(BalancePayResp {
+                success: false,
+                paid_amount: 0,
+                balance_after: current_balance,
+                order_status: Some(order.status as i64),
+                message: "insufficient balance".to_string(),
+            })));
+        }
 
-    Ok(Json(ApiResponse::success(BalancePayResp {
-        success: true,
-        paid_amount: order.total_amount,
-        balance_after,
-        order_status: Some(1),
-        message: "支付成功".to_string(),
-    })))
+        let balance_after = current_balance - order.total_amount;
+        let balance_trade_no = build_balance_trade_no(order.id);
+
+        let updated = sqlx::query(
+            "UPDATE orders SET status = 1, paid_amount = ?, external_order_no = ? WHERE id = ? AND status = 0",
+        )
+        .bind(order.total_amount)
+        .bind(&balance_trade_no)
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+
+        if updated.rows_affected() != 1 {
+            return Err(AppError::BadRequest(
+                "order status changed, please retry".to_string(),
+            ));
+        }
+
+        sqlx::query(
+            "INSERT INTO balance_accounts (openid, balance) VALUES (?, ?) ON DUPLICATE KEY UPDATE balance = VALUES(balance), updated_at = NOW()",
+        )
+        .bind(&openid)
+        .bind(balance_after)
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query(
+            "INSERT INTO balance_transactions (openid, amount, balance_after, `type`, external_order_no, status, remark) VALUES (?, ?, ?, 2, ?, 1, 'order balance payment')",
+        )
+        .bind(&openid)
+        .bind(order.total_amount)
+        .bind(balance_after)
+        .bind(&balance_trade_no)
+        .execute(&mut *tx)
+        .await?;
+
+        Ok(Json(ApiResponse::success(BalancePayResp {
+            success: true,
+            paid_amount: order.total_amount,
+            balance_after,
+            order_status: Some(1),
+            message: "payment successful".to_string(),
+        })))
+    }
+    .await;
+
+    let _ = sqlx::query_scalar::<_, Option<i32>>("SELECT RELEASE_LOCK(?)")
+        .bind(&lock_key)
+        .fetch_one(&mut *tx)
+        .await;
+
+    match result {
+        Ok(resp) => {
+            tx.commit().await?;
+            Ok(resp)
+        }
+        Err(err) => {
+            tx.rollback().await?;
+            Err(err)
+        }
+    }
 }
 
-/// 小程序：确认收货
+/// 灏忕▼搴忥細纭鏀惰揣
 pub async fn confirm_my_order_received(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
@@ -401,7 +429,7 @@ pub async fn confirm_my_order_received(
 
     if order.status != 2 {
         return Err(AppError::BadRequest(
-            "只有待收货的订单才能确认收货".to_string(),
+            "鍙湁寰呮敹璐х殑璁㈠崟鎵嶈兘纭鏀惰揣".to_string(),
         ));
     }
 
@@ -415,7 +443,7 @@ pub async fn confirm_my_order_received(
     Ok(Json(ApiResponse::success(resp)))
 }
 
-/// 小程序：提交订单
+/// 灏忕▼搴忥細鎻愪氦璁㈠崟
 pub async fn create_order(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
@@ -425,13 +453,13 @@ pub async fn create_order(
     let user_id = get_user_id_by_openid(&state, &openid).await?;
 
     if body.items.is_empty() {
-        return Err(AppError::BadRequest("订单商品不能为空".to_string()));
+        return Err(AppError::BadRequest("璁㈠崟鍟嗗搧涓嶈兘涓虹┖".to_string()));
     }
 
     let address_id: u64 = body
         .address_id
         .parse()
-        .map_err(|_| AppError::BadRequest("addressId 格式错误".to_string()))?;
+        .map_err(|_| AppError::BadRequest("addressId 鏍煎紡閿欒".to_string()))?;
 
     ensure_address_owned_by_user(&state, &openid, address_id).await?;
 
@@ -461,7 +489,7 @@ pub async fn create_order(
     Ok(Json(ApiResponse::success(resp)))
 }
 
-/// 小程序：我的订单列表
+/// 灏忕▼搴忥細鎴戠殑璁㈠崟鍒楄〃
 pub async fn list_my_orders(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
@@ -529,7 +557,7 @@ pub async fn list_my_orders(
     })))
 }
 
-/// 小程序：订单详情
+/// 灏忕▼搴忥細璁㈠崟璇︽儏
 pub async fn get_my_order(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
@@ -542,7 +570,7 @@ pub async fn get_my_order(
     Ok(Json(ApiResponse::success(resp)))
 }
 
-/// 小程序：取消订单（仅限待付款状态）
+/// 灏忕▼搴忥細鍙栨秷璁㈠崟锛堜粎闄愬緟浠樻鐘舵€侊級
 pub async fn cancel_my_order(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
@@ -553,7 +581,9 @@ pub async fn cancel_my_order(
     let order = fetch_owned_order(&state, id, user_id).await?;
 
     if order.status != 0 {
-        return Err(AppError::BadRequest("只有待付款的订单才能取消".to_string()));
+        return Err(AppError::BadRequest(
+            "鍙湁寰呬粯娆剧殑璁㈠崟鎵嶈兘鍙栨秷".to_string(),
+        ));
     }
 
     sqlx::query("UPDATE orders SET status = 4 WHERE id = ?")
@@ -578,12 +608,14 @@ pub async fn pay_order(
     let order = fetch_owned_order(&state, id, user_id).await?;
 
     if order.status != 0 {
-        return Err(AppError::BadRequest("只有待付款的订单才能支付".to_string()));
+        return Err(AppError::BadRequest(
+            "鍙湁寰呬粯娆剧殑璁㈠崟鎵嶈兘鏀粯".to_string(),
+        ));
     }
 
     let id_card_number = fetch_user_id_card_number(&state, &openid).await?;
     if id_card_number.is_empty() {
-        let fail_msg = "支付失败：用户未绑定身份证号";
+        let fail_msg = "鏀粯澶辫触锛氱敤鎴锋湭缁戝畾韬唤璇佸彿";
         sqlx::query("UPDATE orders SET remark = ? WHERE id = ?")
             .bind(fail_msg)
             .bind(id)
@@ -627,10 +659,12 @@ pub async fn pay_order(
             success: true,
             paid_amount: result.paid_amount,
             order_status: result.order_status,
-            message: "支付成功".to_string(),
+            message: "鏀粯鎴愬姛".to_string(),
         })))
     } else {
-        let fail_msg = result.fail_reason.unwrap_or_else(|| "支付失败".to_string());
+        let fail_msg = result
+            .fail_reason
+            .unwrap_or_else(|| "鏀粯澶辫触".to_string());
         sqlx::query("UPDATE orders SET remark = ? WHERE id = ?")
             .bind(&fail_msg)
             .bind(id)

@@ -1,7 +1,7 @@
 use super::admin::auth::{get_codes, login, logout, refresh};
 use super::admin::{
-    category, dashboard, goods as admin_goods, logs as admin_logs, order as admin_order, product,
-    subscription as admin_subscription, upload, wechat_user,
+    admin_user, category, dashboard, goods as admin_goods, logs as admin_logs,
+    order as admin_order, product, subscription as admin_subscription, upload, wechat_user,
 };
 use super::mini_app::{
     address, auth as mini_auth, category as mini_category, goods as mini_goods,
@@ -41,6 +41,12 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .route("/auth/refresh", post(refresh))
         .route("/auth/logout", post(logout))
         .route("/auth/codes", get(get_codes))
+        .route("/api/admin/permissions", get(admin_user::list_permissions))
+        .route("/api/admin/admin-users", get(admin_user::list_admin_users))
+        .route(
+            "/api/admin/admin-users/{id}/permissions",
+            put(admin_user::update_admin_user_permissions),
+        )
         .route("/api/admin/dashboard", get(dashboard::get_dashboard_data))
         .route("/api/admin/logs/recent", get(admin_logs::get_recent_logs))
         .route("/api/admin/products", get(product::list_products))
@@ -151,6 +157,10 @@ pub fn build_app(state: Arc<AppState>) -> Router {
         .route(
             "/api/admin/subscription/auto-recharge",
             post(admin_subscription::auto_recharge),
+        )
+        .route(
+            "/api/admin/subscription/records",
+            get(admin_subscription::list_subscription_records),
         )
         .route(
             "/api/admin/wechat/users/{openid}/balance",

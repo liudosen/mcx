@@ -3,7 +3,8 @@ use crate::models::{
     build_admin_goods_detail, AdminGoodsDetail, CreateGoodsRequest, GoodsRow, GoodsSkuRow,
     SkuRequest, UpdateGoodsRequest,
 };
-use crate::routes::admin::auth::check_admin;
+use crate::routes::admin::auth::authorize_admin;
+use crate::routes::admin::permissions::GOODS_VIEW;
 use crate::routes::ApiResponse;
 use crate::state::AppState;
 use axum::{
@@ -57,7 +58,7 @@ pub async fn list_goods(
     headers: axum::http::HeaderMap,
     Query(q): Query<ListGoodsQuery>,
 ) -> Result<Json<ApiResponse<PagedGoods>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[GOODS_VIEW]).await?;
 
     let page = q.page.unwrap_or(1).max(1);
     let page_size = q.page_size.unwrap_or(20).min(100);
@@ -134,7 +135,7 @@ pub async fn get_goods(
     headers: axum::http::HeaderMap,
     Path(id): Path<u64>,
 ) -> Result<Json<ApiResponse<AdminGoodsDetail>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[GOODS_VIEW]).await?;
 
     let row = sqlx::query_as::<_, GoodsRow>(
         "SELECT id, store_id, saas_id, title, primary_image, images, desc_images, spec_list, \
@@ -157,7 +158,7 @@ pub async fn create_goods(
     headers: axum::http::HeaderMap,
     Json(body): Json<CreateGoodsRequest>,
 ) -> Result<Json<ApiResponse<AdminGoodsDetail>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[GOODS_VIEW]).await?;
 
     if body.title.is_empty() {
         return Err(AppError::BadRequest("商品名称不能为空".to_string()));
@@ -228,7 +229,7 @@ pub async fn update_goods(
     Path(id): Path<u64>,
     Json(body): Json<UpdateGoodsRequest>,
 ) -> Result<Json<ApiResponse<AdminGoodsDetail>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[GOODS_VIEW]).await?;
 
     let existing = sqlx::query_as::<_, GoodsRow>(
         "SELECT id, store_id, saas_id, title, primary_image, images, desc_images, spec_list, \
@@ -330,7 +331,7 @@ pub async fn delete_goods(
     headers: axum::http::HeaderMap,
     Path(id): Path<u64>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[GOODS_VIEW]).await?;
 
     let result = sqlx::query("DELETE FROM goods WHERE id = ?")
         .bind(id)

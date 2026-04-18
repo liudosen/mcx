@@ -1,10 +1,12 @@
 use crate::error::AppError;
-use crate::models::{AccessCodesResponse, LoginResponse};
+use crate::models::{AccessCodesResponse, AdminUser, LoginResponse};
+use crate::routes::admin::permissions::all_permission_codes;
 use crate::routes::ApiResponse;
 use crate::state::AppState;
 use axum::{extract::State, http::HeaderMap, Json};
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::Arc;
 
 const TOKEN_PREFIX: &str = "welfare:token:";
@@ -22,6 +24,12 @@ pub struct Claims {
     pub role: String,
     pub exp: usize,
     pub iat: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct AdminSession {
+    pub admin: AdminUser,
+    pub codes: Vec<String>,
 }
 
 fn create_token(
@@ -68,7 +76,6 @@ pub fn extract_token(auth_header: &str) -> Option<&str> {
     auth_header.strip_prefix("Bearer ")
 }
 
-// Store token in Redis with expiry
 async fn store_token(state: &AppState, token: &str, admin_id: u64) -> Result<(), AppError> {
     let key = format!("{}{}", TOKEN_PREFIX, token);
     let expiry_seconds = state.jwt_expiry_hours * 3600;
@@ -87,7 +94,6 @@ async fn store_token(state: &AppState, token: &str, admin_id: u64) -> Result<(),
     Ok(())
 }
 
-// Check if token exists in Redis
 pub async fn check_token_exists(state: &AppState, token: &str) -> Result<bool, AppError> {
     let key = format!("{}{}", TOKEN_PREFIX, token);
 
@@ -103,7 +109,6 @@ pub async fn check_token_exists(state: &AppState, token: &str) -> Result<bool, A
     Ok(exists)
 }
 
-// Remove token from Redis
 async fn remove_token(state: &AppState, token: &str) -> Result<(), AppError> {
     let key = format!("{}{}", TOKEN_PREFIX, token);
 
@@ -119,36 +124,93 @@ async fn remove_token(state: &AppState, token: &str) -> Result<(), AppError> {
     Ok(())
 }
 
+async fn load_admin_session(state: &AppState, token: &str) -> Result<AdminSession, AppError> {
+    if !check_token_exists(state, token).await? {
+        return Err(AppError::TokenExpired);
+    }
+
+    let claims = validate_token(state, token)?;
+    let admin = sqlx::query_as::<_, AdminUser>(
+        r#"
+        SELECT id, username, password_hash, role, COALESCE(permission_codes, '[]') as permission_codes,
+               is_active, created_at, updated_at
+        FROM admin_users
+        WHERE id = ?
+        "#,
+    )
+    .bind(claims.admin_id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or(AppError::InvalidToken)?;
+
+    if !admin.is_active {
+        return Err(AppError::PermissionDenied);
+    }
+
+    let codes = if admin.role == "admin" {
+        all_permission_codes()
+    } else {
+        serde_json::from_str::<Vec<String>>(&admin.permission_codes).unwrap_or_default()
+    };
+
+    Ok(AdminSession { admin, codes })
+}
+
+pub async fn authorize_admin(
+    state: &AppState,
+    headers: &HeaderMap,
+    required: &[&str],
+) -> Result<AdminSession, AppError> {
+    let auth_header = headers
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(AppError::InvalidToken)?;
+
+    let token = extract_token(auth_header).ok_or(AppError::InvalidToken)?;
+    let session = load_admin_session(state, token).await?;
+
+    if !required.is_empty() {
+        let granted: HashSet<&str> = session.codes.iter().map(|code| code.as_str()).collect();
+        let missing = required.iter().find(|code| !granted.contains(**code));
+        if missing.is_some() {
+            return Err(AppError::PermissionDenied);
+        }
+    }
+
+    Ok(session)
+}
+
 pub async fn login(
     State(state): State<Arc<AppState>>,
     Json(body): Json<LoginBody>,
 ) -> Result<Json<ApiResponse<LoginResponse>>, AppError> {
     tracing::info!("Login attempt for user: {}", body.username);
 
-    let admin = sqlx::query_as::<_, (u64, String, String, String, bool)>(
-        "SELECT id, username, password_hash, role, is_active FROM admin_users WHERE username = ?",
+    let admin = sqlx::query_as::<_, AdminUser>(
+        r#"
+        SELECT id, username, password_hash, role, COALESCE(permission_codes, '[]') as permission_codes,
+               is_active, created_at, updated_at
+        FROM admin_users
+        WHERE username = ?
+        "#,
     )
     .bind(&body.username)
     .fetch_optional(&state.db)
     .await?
-    .ok_or(AppError::UserNotFound)?;
+    .ok_or(AppError::InvalidCredentials)?;
 
-    let (admin_id, _username, password_hash, role, is_active) = admin;
-
-    if !is_active {
-        return Err(AppError::UserInactive);
+    if !admin.is_active {
+        return Err(AppError::InvalidCredentials);
     }
 
-    let is_valid = bcrypt::verify(&body.password, &password_hash)?;
+    let is_valid = bcrypt::verify(&body.password, &admin.password_hash)?;
     if !is_valid {
         tracing::warn!("Invalid password for user: {}", body.username);
         return Err(AppError::InvalidCredentials);
     }
 
-    let token = create_token(&state, admin_id, &body.username, &role)?;
-
-    // Store token in Redis with expiry
-    store_token(&state, &token, admin_id).await?;
+    let token = create_token(&state, admin.id as u64, &body.username, &admin.role)?;
+    store_token(&state, &token, admin.id as u64).await?;
 
     let expires_in = state.jwt_expiry_hours * 3600;
 
@@ -171,18 +233,16 @@ pub async fn refresh(
         .ok_or(AppError::InvalidToken)?;
 
     let token = extract_token(auth_header).ok_or(AppError::InvalidToken)?;
+    let session = load_admin_session(&state, token).await?;
 
-    // Check if token exists in Redis
-    if !check_token_exists(&state, token).await? {
-        return Err(AppError::TokenExpired);
-    }
+    let new_token = create_token(
+        &state,
+        session.admin.id as u64,
+        &session.admin.username,
+        &session.admin.role,
+    )?;
 
-    let claims = validate_token(&state, token)?;
-
-    let new_token = create_token(&state, claims.admin_id, &claims.sub, &claims.role)?;
-
-    // Store new token in Redis
-    store_token(&state, &new_token, claims.admin_id).await?;
+    store_token(&state, &new_token, session.admin.id as u64).await?;
 
     let expires_in = state.jwt_expiry_hours * 3600;
 
@@ -201,7 +261,6 @@ pub async fn logout(
 
     if let Some(header) = auth_header {
         if let Some(token) = extract_token(header) {
-            // Remove token from Redis
             let _ = remove_token(&state, token).await;
         }
     }
@@ -219,69 +278,21 @@ pub async fn get_codes(
         .ok_or(AppError::InvalidToken)?;
 
     let token = extract_token(auth_header).ok_or(AppError::InvalidToken)?;
+    let session = load_admin_session(&state, token).await?;
+    let username = session.admin.username.clone();
+    let role = session.admin.role.clone();
+    let is_admin = role == "admin";
 
-    // Check if token exists in Redis
-    if !check_token_exists(&state, token).await? {
-        return Err(AppError::TokenExpired);
-    }
-
-    let claims = validate_token(&state, token)?;
-
-    let codes: Vec<String> = match claims.role.as_str() {
-        "admin" => vec![
-            "user:read".to_string(),
-            "user:write".to_string(),
-            "user:delete".to_string(),
-            "product:read".to_string(),
-            "product:write".to_string(),
-            "product:delete".to_string(),
-            "order:read".to_string(),
-            "order:write".to_string(),
-            "inventory:read".to_string(),
-            "inventory:write".to_string(),
-            "logistics:read".to_string(),
-            "logistics:write".to_string(),
-        ],
-        "operator" => vec![
-            "product:read".to_string(),
-            "product:write".to_string(),
-            "order:read".to_string(),
-            "order:write".to_string(),
-            "inventory:read".to_string(),
-            "inventory:write".to_string(),
-            "logistics:read".to_string(),
-            "logistics:write".to_string(),
-        ],
-        "viewer" => vec![
-            "product:read".to_string(),
-            "order:read".to_string(),
-            "inventory:read".to_string(),
-            "logistics:read".to_string(),
-        ],
-        _ => vec![],
+    let codes = if is_admin {
+        all_permission_codes()
+    } else {
+        session.codes.clone()
     };
 
-    Ok(Json(ApiResponse::success(AccessCodesResponse { codes })))
-}
-
-/// 验证管理员身份
-pub async fn check_admin(state: &AppState, headers: &HeaderMap) -> Result<(), AppError> {
-    let auth_header = headers
-        .get("Authorization")
-        .and_then(|v| v.to_str().ok())
-        .ok_or(AppError::InvalidToken)?;
-
-    let token = extract_token(auth_header).ok_or(AppError::InvalidToken)?;
-
-    if !check_token_exists(state, token).await? {
-        return Err(AppError::TokenExpired);
-    }
-
-    let claims = validate_token(state, token)?;
-
-    if claims.role != "admin" {
-        return Err(AppError::PermissionDenied);
-    }
-
-    Ok(())
+    Ok(Json(ApiResponse::success(AccessCodesResponse {
+        username,
+        role,
+        is_admin,
+        codes,
+    })))
 }

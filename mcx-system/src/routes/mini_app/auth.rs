@@ -57,13 +57,13 @@ pub async fn wechat_login(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<WechatLoginRequest>,
 ) -> Result<Json<ApiResponse<WechatLoginResponse>>, AppError> {
-    tracing::info!("Wechat login attempt with code: {}", payload.code);
+    tracing::info!(
+        "Wechat login attempt received (code redacted, len={})",
+        payload.code.len()
+    );
 
     let openid = if let Some(dev_openid) = state.dev_wechat_openid.clone() {
-        tracing::warn!(
-            "DEV_WECHAT_OPENID is set, skipping WeChat code exchange and using openid: {}",
-            dev_openid
-        );
+        tracing::warn!("DEV_WECHAT_OPENID is set, skipping WeChat code exchange");
         dev_openid
     } else {
         let wechat_url = format!(
@@ -102,7 +102,7 @@ pub async fn wechat_login(
         })?
     };
 
-    tracing::info!("Wechat login success for openid: {}", openid);
+    tracing::info!("Wechat login success");
 
     let user = find_or_create_wechat_user(&state, &openid).await?;
 
@@ -114,10 +114,11 @@ pub async fn wechat_login(
     let token = create_wechat_token(&state, user.id, &openid)?;
 
     if state.dev_wechat_openid.is_some() {
-        DEV_TOKEN_STORE
-            .lock()
-            .expect("dev token store poisoned")
-            .insert(token.clone(), openid.clone());
+        if let Ok(mut store) = DEV_TOKEN_STORE.lock() {
+            store.insert(token.clone(), openid.clone());
+        } else {
+            tracing::error!("dev token store poisoned, skipping token cache");
+        }
     } else {
         let wechat_key = format!("welfare:wechat:token:{}", token);
         let expiry_seconds = 30 * 24 * 3600;

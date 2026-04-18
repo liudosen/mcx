@@ -36,11 +36,8 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     tracing::info!("Database connected");
 
-    let redis_client =
-        redis::Client::open(config.redis_url.as_str()).expect("Failed to create Redis client");
-    let redis_conn = redis::aio::ConnectionManager::new(redis_client)
-        .await
-        .expect("Failed to connect to Redis");
+    let redis_client = redis::Client::open(config.redis_url.as_str())?;
+    let redis_conn = redis::aio::ConnectionManager::new(redis_client).await?;
     tracing::info!("Redis connected");
 
     sqlx::migrate!("./migrations").run(&db).await?;
@@ -59,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         if exists.is_none() {
             let password_hash = bcrypt::hash(&admin_password, config.bcrypt_cost)?;
             sqlx::query(
-                "INSERT INTO admin_users (username, password_hash, role, is_active) VALUES (?, ?, 'admin', 1)",
+                "INSERT INTO admin_users (username, password_hash, role, permission_codes, is_active) VALUES (?, ?, 'admin', '[]', 1)",
             )
             .bind(&admin_username)
             .bind(&password_hash)

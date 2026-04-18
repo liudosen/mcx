@@ -1,6 +1,7 @@
 use crate::error::AppError;
 use crate::models::{CreateCategoryRequest, GoodsCategory, UpdateCategoryRequest};
-use crate::routes::admin::auth::check_admin;
+use crate::routes::admin::auth::authorize_admin;
+use crate::routes::admin::permissions::CATEGORY_LIST_VIEW;
 use crate::routes::ApiResponse;
 use crate::state::AppState;
 use axum::{
@@ -13,7 +14,7 @@ pub async fn list_categories(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<Vec<GoodsCategory>>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[CATEGORY_LIST_VIEW]).await?;
 
     let list = sqlx::query_as::<_, GoodsCategory>(
         "SELECT id, name, sort_order, status, (SELECT COUNT(*) FROM goods WHERE category_id = goods_categories.id) AS goods_count FROM goods_categories ORDER BY sort_order ASC, id ASC",
@@ -29,7 +30,7 @@ pub async fn create_category(
     headers: axum::http::HeaderMap,
     Json(body): Json<CreateCategoryRequest>,
 ) -> Result<Json<ApiResponse<GoodsCategory>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[CATEGORY_LIST_VIEW]).await?;
 
     let name = body.name.trim().to_string();
     if name.is_empty() {
@@ -65,7 +66,7 @@ pub async fn update_category(
     Path(id): Path<u64>,
     Json(body): Json<UpdateCategoryRequest>,
 ) -> Result<Json<ApiResponse<GoodsCategory>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[CATEGORY_LIST_VIEW]).await?;
 
     let existing = sqlx::query_as::<_, GoodsCategory>(
         "SELECT id, name, sort_order, status, (SELECT COUNT(*) FROM goods WHERE category_id = goods_categories.id) AS goods_count FROM goods_categories WHERE id = ?",
@@ -108,7 +109,7 @@ pub async fn delete_category(
     headers: axum::http::HeaderMap,
     Path(id): Path<u64>,
 ) -> Result<Json<ApiResponse<()>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[CATEGORY_LIST_VIEW]).await?;
 
     // 检查是否有商品在用
     let in_use: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM goods WHERE category_id = ?")

@@ -2,7 +2,7 @@ param(
     [string]$Server = "47.103.220.84",
     [string]$User = "root",
     [string]$RemoteBase = "/root/workspace/mcx/backend",
-    [string]$FrontendDir = (Join-Path (Split-Path $PSScriptRoot -Parent) "frontend"),
+    [string]$FrontendDir,
     [string]$ArchiveName = "frontend-dist.tar.gz",
     [switch]$SkipBuild
 )
@@ -43,6 +43,10 @@ Assert-Command tar
 Assert-Command python
 
 $Password = Get-RequiredEnv "DEPLOY_SSH_PASSWORD"
+
+if ([string]::IsNullOrWhiteSpace($FrontendDir)) {
+    $FrontendDir = Join-Path (Split-Path $PSScriptRoot -Parent) "frontend"
+}
 
 if (-not (Test-Path $FrontendDir)) {
     throw "Frontend directory not found: $FrontendDir"

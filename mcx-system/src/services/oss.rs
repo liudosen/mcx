@@ -1,3 +1,4 @@
+use crate::error::AppError;
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{Duration, Utc};
 use hmac::{Hmac, Mac};
@@ -58,7 +59,7 @@ impl OssService {
     }
 
     /// 生成上传签名（前端直传用）
-    pub fn generate_upload_signature(&self, filename: &str) -> UploadSignature {
+    pub fn generate_upload_signature(&self, filename: &str) -> Result<UploadSignature, AppError> {
         let now = Utc::now();
         let expire_time = now + Duration::hours(1);
 
@@ -84,11 +85,13 @@ impl OssService {
             ],
         };
 
-        let policy_json = serde_json::to_string(&policy).unwrap();
+        let policy_json = serde_json::to_string(&policy).map_err(|e| {
+            AppError::InternalError(format!("Failed to serialize OSS policy: {}", e))
+        })?;
         let policy_base64 = general_purpose::STANDARD.encode(&policy_json);
 
         // 生成签名
-        let signature = self.sign(&policy_base64);
+        let signature = self.sign(&policy_base64)?;
 
         let host = if self.domain.starts_with("http") {
             self.domain.clone()
@@ -96,7 +99,7 @@ impl OssService {
             format!("https://{}.{}", self.bucket, self.endpoint)
         };
 
-        UploadSignature {
+        Ok(UploadSignature {
             url: host.clone(),
             key,
             policy: policy_base64,
@@ -104,21 +107,25 @@ impl OssService {
             signature,
             expire: expire_time.timestamp(),
             host,
-        }
+        })
     }
 
     /// 生成签名
-    fn sign(&self, string_to_sign: &str) -> String {
+    fn sign(&self, string_to_sign: &str) -> Result<String, AppError> {
         let mut mac = HmacSha1::new_from_slice(self.access_key_secret.as_bytes())
-            .expect("HMAC can take key of any size");
+            .map_err(|e| AppError::InternalError(format!("Failed to create HMAC: {}", e)))?;
         mac.update(string_to_sign.as_bytes());
         let result = mac.finalize();
-        general_purpose::STANDARD.encode(result.into_bytes())
+        Ok(general_purpose::STANDARD.encode(result.into_bytes()))
     }
 
     /// 生成访问 URL（用于私有文件访问）
     #[allow(dead_code)]
-    pub fn generate_presigned_url(&self, key: &str, expire_seconds: i64) -> String {
+    pub fn generate_presigned_url(
+        &self,
+        key: &str,
+        expire_seconds: i64,
+    ) -> Result<String, AppError> {
         let expire_timestamp = Utc::now().timestamp() + expire_seconds;
 
         let key_with_slash = if key.starts_with('/') {
@@ -132,10 +139,10 @@ impl OssService {
             expire_timestamp, self.bucket, key_with_slash
         );
 
-        let signature = self.sign(&string_to_sign);
+        let signature = self.sign(&string_to_sign)?;
         let signature_encoded = urlencoding::encode(&signature);
 
-        format!(
+        Ok(format!(
             "https://{}.{}{}?OSSAccessKeyId={}&Expires={}&Signature={}",
             self.bucket,
             self.endpoint,
@@ -143,6 +150,6 @@ impl OssService {
             self.access_key_id,
             expire_timestamp,
             signature_encoded
-        )
+        ))
     }
 }

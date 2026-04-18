@@ -2,7 +2,8 @@ use crate::error::AppError;
 use crate::models::order::{
     build_order_resp, OrderAddressSnap, OrderItemRow, OrderResp, OrderRow, UpdateOrderStatusRequest,
 };
-use crate::routes::admin::auth::check_admin;
+use crate::routes::admin::auth::authorize_admin;
+use crate::routes::admin::permissions::ORDER_LIST_VIEW;
 use crate::routes::ApiResponse;
 use crate::state::AppState;
 use axum::{
@@ -95,7 +96,7 @@ pub async fn list_orders(
     headers: axum::http::HeaderMap,
     Query(q): Query<ListOrdersQuery>,
 ) -> Result<Json<ApiResponse<PagedOrders>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[ORDER_LIST_VIEW]).await?;
 
     let page = q.page.unwrap_or(1).max(1);
     let page_size = q.page_size.unwrap_or(20).min(100);
@@ -173,7 +174,7 @@ pub async fn get_order(
     headers: axum::http::HeaderMap,
     Path(id): Path<u64>,
 ) -> Result<Json<ApiResponse<OrderResp>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[ORDER_LIST_VIEW]).await?;
 
     let order = sqlx::query_as::<_, OrderRow>(&format!("{} WHERE id = ?", ORDER_SELECT))
         .bind(id)
@@ -196,7 +197,7 @@ pub async fn update_order_status(
     Path(id): Path<u64>,
     Json(body): Json<UpdateOrderStatusRequest>,
 ) -> Result<Json<ApiResponse<OrderResp>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[ORDER_LIST_VIEW]).await?;
 
     if !(0..=4).contains(&body.status) {
         return Err(AppError::BadRequest("无效的订单状态（0-4）".to_string()));

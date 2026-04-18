@@ -6,7 +6,7 @@ pub async fn user_id_by_openid(state: &AppState, openid: &str) -> Result<u64, Ap
         .bind(openid)
         .fetch_optional(&state.db)
         .await?
-        .ok_or(AppError::NotFound("用户不存在".to_string()))?;
+        .ok_or(AppError::NotFound("User not found".to_string()))?;
     Ok(user_id)
 }
 
@@ -26,7 +26,7 @@ pub async fn id_card_and_payment_password(
     .bind(openid)
     .fetch_optional(&state.db)
     .await?
-    .ok_or(AppError::NotFound("用户不存在".to_string()))?;
+    .ok_or(AppError::NotFound("User not found".to_string()))?;
 
     Ok((row.id_card_number, row.payment_password))
 }

@@ -1,62 +1,79 @@
 use crate::error::AppError;
-use crate::routes::admin::auth::check_admin;
-use crate::routes::ApiResponse;
-use crate::state::AppState;
-use axum::{extract::Path, extract::State, Json};
-use serde::Deserialize;
-use std::sync::Arc;
-
 use crate::models::wechat_user::{
     AddressWithUser, CreateWechatUserRequest, PaginatedResponse, UpdateWechatUserByOpenidRequest,
     UpdateWechatUserRequest, WechatUser, WechatUserQuery,
 };
+use crate::routes::admin::auth::authorize_admin;
+use crate::routes::admin::permissions::{WECHAT_USER_LIST_VIEW, WECHAT_USER_PASSWORD_VIEW};
+use crate::routes::ApiResponse;
+use crate::state::AppState;
+use axum::{extract::Path, extract::State, Json};
+use sqlx::{MySql, QueryBuilder};
+use std::sync::Arc;
 
-/// 获取用户列表（以微信用户表为主，地址表填充用户信息）
+fn append_wechat_user_filters(builder: &mut QueryBuilder<MySql>, query: &WechatUserQuery) {
+    if let Some(ref openid) = query.openid {
+        if !openid.is_empty() {
+            builder.push(" AND w.openid = ");
+            builder.push_bind(openid.clone());
+        }
+    }
+
+    if let Some(ref phone) = query.phone {
+        if !phone.is_empty() {
+            let phone_like = format!("%{}%", phone);
+            builder.push(" AND (w.phone LIKE ");
+            builder.push_bind(phone_like.clone());
+            builder.push(" OR a.phone LIKE ");
+            builder.push_bind(phone_like);
+            builder.push(")");
+        }
+    }
+
+    if let Some(gender) = query.gender {
+        builder.push(" AND w.gender = ");
+        builder.push_bind(gender);
+    }
+
+    if let Some(ref start_date) = query.start_date {
+        if !start_date.is_empty() {
+            builder.push(" AND w.created_at >= ");
+            builder.push_bind(start_date.clone());
+        }
+    }
+
+    if let Some(ref end_date) = query.end_date {
+        if !end_date.is_empty() {
+            builder.push(" AND w.created_at <= ");
+            builder.push_bind(end_date.clone());
+        }
+    }
+}
+
+/// Get user list. Addresses are the primary table and wechat_users fills in extra fields.
 pub async fn list_wechat_users(
     State(state): State<Arc<AppState>>,
     axum::extract::Query(query): axum::extract::Query<WechatUserQuery>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<PaginatedResponse<AddressWithUser>>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[WECHAT_USER_LIST_VIEW]).await?;
 
     let page = query.page.unwrap_or(1).max(1);
     let page_size = query.page_size.unwrap_or(20).min(100);
     let offset = (page - 1) * page_size;
 
-    // 构建动态查询 - 从微信用户表关联地址表
-    let mut conditions = Vec::new();
-
-    if let Some(ref phone) = query.phone {
-        if !phone.is_empty() {
-            // 手机号匹配地址表或用户表
-            conditions.push(format!(
-                " AND (w.phone LIKE '%{}%' OR a.phone LIKE '%{}%')",
-                phone, phone
-            ));
-        }
-    }
-    if let Some(ref start_date) = query.start_date {
-        if !start_date.is_empty() {
-            conditions.push(format!(" AND w.created_at >= '{}'", start_date));
-        }
-    }
-    if let Some(ref end_date) = query.end_date {
-        if !end_date.is_empty() {
-            conditions.push(format!(" AND w.created_at <= '{}'", end_date));
-        }
-    }
-
-    let where_clause = conditions.join("");
-
-    // 统计总数
-    let count_sql = format!(
-        "SELECT COUNT(*) FROM wechat_users w WHERE 1=1{}",
-        where_clause
+    let mut count_builder = QueryBuilder::<MySql>::new(
+        "SELECT COUNT(*) FROM wechat_users w \
+         LEFT JOIN addresses a ON w.openid = a.open_id AND a.is_default = 1 \
+         WHERE 1=1",
     );
-    let total: i64 = sqlx::query_scalar(&count_sql).fetch_one(&state.db).await?;
+    append_wechat_user_filters(&mut count_builder, &query);
+    let total: i64 = count_builder
+        .build_query_scalar()
+        .fetch_one(&state.db)
+        .await?;
 
-    // 查询用户列表，关联地址表填充信息
-    let select_sql = format!(
+    let mut select_builder = QueryBuilder::<MySql>::new(
         r#"
         SELECT a.id, a.open_id, a.receiver_name, a.phone, a.province, a.city, a.district,
                a.detail_address, a.label, a.is_default, a.created_at, a.updated_at,
@@ -67,14 +84,17 @@ pub async fn list_wechat_users(
                COALESCE(w.id_card_number, '') as id_card_number
         FROM wechat_users w
         LEFT JOIN addresses a ON w.openid = a.open_id AND a.is_default = 1
-        WHERE 1=1 {}
-        ORDER BY w.id DESC
-        LIMIT {} OFFSET {}
+        WHERE 1=1
         "#,
-        where_clause, page_size, offset
     );
+    append_wechat_user_filters(&mut select_builder, &query);
+    select_builder.push(" ORDER BY w.id DESC LIMIT ");
+    select_builder.push_bind(page_size as i64);
+    select_builder.push(" OFFSET ");
+    select_builder.push_bind(offset as i64);
 
-    let addresses = sqlx::query_as::<_, AddressWithUser>(&select_sql)
+    let addresses = select_builder
+        .build_query_as::<AddressWithUser>()
         .fetch_all(&state.db)
         .await?;
 
@@ -82,15 +102,14 @@ pub async fn list_wechat_users(
     Ok(Json(ApiResponse::success(response)))
 }
 
-/// 获取单个用户（微信用户表为主，地址表填充信息）
+/// Get a single user.
 pub async fn get_wechat_user(
     State(state): State<Arc<AppState>>,
     Path(id): Path<u64>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<AddressWithUser>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[WECHAT_USER_LIST_VIEW]).await?;
 
-    // 查询用户，关联地址表填充信息
     let address = sqlx::query_as::<_, AddressWithUser>(
         r#"
         SELECT a.id, a.open_id, a.receiver_name, a.phone, a.province, a.city, a.district,
@@ -113,13 +132,13 @@ pub async fn get_wechat_user(
     Ok(Json(ApiResponse::success(address)))
 }
 
-/// 创建用户
+/// Create a user.
 pub async fn create_wechat_user(
     State(state): State<Arc<AppState>>,
     headers: axum::http::HeaderMap,
     Json(payload): Json<CreateWechatUserRequest>,
 ) -> Result<Json<ApiResponse<WechatUser>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[WECHAT_USER_LIST_VIEW]).await?;
 
     sqlx::query(
         r#"
@@ -149,23 +168,21 @@ pub async fn create_wechat_user(
     Ok(Json(ApiResponse::success(user)))
 }
 
-/// 更新用户
+/// Update a user by id.
 pub async fn update_wechat_user(
     State(state): State<Arc<AppState>>,
     Path(id): Path<u64>,
     headers: axum::http::HeaderMap,
     Json(payload): Json<UpdateWechatUserRequest>,
 ) -> Result<Json<ApiResponse<WechatUser>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[WECHAT_USER_LIST_VIEW]).await?;
 
-    // 检查用户存在
     let existing = sqlx::query_as::<_, WechatUser>("SELECT * FROM wechat_users WHERE id = ?")
         .bind(id)
         .fetch_optional(&state.db)
         .await?
         .ok_or(AppError::NotFound("User".to_string()))?;
 
-    // 只更新传入的字段（Some表示要更新，None表示不更新）
     let mut updates: Vec<&str> = Vec::new();
     let mut values: Vec<String> = Vec::new();
 
@@ -226,13 +243,13 @@ pub async fn update_wechat_user(
     Ok(Json(ApiResponse::success(user)))
 }
 
-/// 删除用户
+/// Delete a user.
 pub async fn delete_wechat_user(
     State(state): State<Arc<AppState>>,
     Path(id): Path<u64>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<String>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[WECHAT_USER_LIST_VIEW]).await?;
 
     let result = sqlx::query("DELETE FROM wechat_users WHERE id = ?")
         .bind(id)
@@ -246,23 +263,21 @@ pub async fn delete_wechat_user(
     Ok(Json(ApiResponse::success("deleted".to_string())))
 }
 
-/// 通过openid更新用户（主要用于更新身份证号等字段）
+/// Update a user by openid.
 pub async fn update_wechat_user_by_openid(
     State(state): State<Arc<AppState>>,
     Path(openid): Path<String>,
     headers: axum::http::HeaderMap,
     Json(payload): Json<UpdateWechatUserByOpenidRequest>,
 ) -> Result<Json<ApiResponse<WechatUser>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[WECHAT_USER_LIST_VIEW]).await?;
 
-    // 检查用户存在
     let existing = sqlx::query_as::<_, WechatUser>("SELECT * FROM wechat_users WHERE openid = ?")
         .bind(&openid)
         .fetch_optional(&state.db)
         .await?
         .ok_or(AppError::NotFound("User".to_string()))?;
 
-    // 只更新传入的字段（Some表示要更新，None表示不更新）
     let mut updates: Vec<&str> = Vec::new();
     let mut values: Vec<String> = Vec::new();
 
@@ -303,11 +318,14 @@ pub async fn update_wechat_user_by_openid(
     Ok(Json(ApiResponse::success(user)))
 }
 
-/// 检查身份证号是否已存在
+/// Check if a card number exists.
 pub async fn check_id_card_number_exists(
     State(state): State<Arc<AppState>>,
+    headers: axum::http::HeaderMap,
     Json(payload): Json<CheckIdCardRequest>,
 ) -> Result<Json<ApiResponse<bool>>, AppError> {
+    authorize_admin(&state, &headers, &[WECHAT_USER_LIST_VIEW]).await?;
+
     if payload.id_card_number.is_empty() {
         return Ok(Json(ApiResponse::success(false)));
     }
@@ -321,19 +339,19 @@ pub async fn check_id_card_number_exists(
     Ok(Json(ApiResponse::success(exists.is_some())))
 }
 
-/// 检查身份证号请求
-#[derive(Debug, Clone, Deserialize)]
+/// Request body for card-number check.
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct CheckIdCardRequest {
     pub id_card_number: String,
 }
 
-/// 获取用户支付密码
+/// Get a user's payment password.
 pub async fn get_payment_password(
     State(state): State<Arc<AppState>>,
     Path(openid): Path<String>,
     headers: axum::http::HeaderMap,
 ) -> Result<Json<ApiResponse<crate::models::wechat_user::PaymentPasswordResponse>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[WECHAT_USER_PASSWORD_VIEW]).await?;
 
     let result: Option<(String,)> =
         sqlx::query_as("SELECT payment_password FROM wechat_users WHERE openid = ?")
@@ -342,9 +360,14 @@ pub async fn get_payment_password(
             .await?;
 
     match result {
-        Some((password,)) => Ok(Json(ApiResponse::success(
+        Some((password,)) if !password.is_empty() => Ok(Json(ApiResponse::success(
             crate::models::wechat_user::PaymentPasswordResponse {
                 payment_password: password,
+            },
+        ))),
+        Some(_) => Ok(Json(ApiResponse::success(
+            crate::models::wechat_user::PaymentPasswordResponse {
+                payment_password: String::new(),
             },
         ))),
         None => Err(AppError::NotFound("User".to_string())),

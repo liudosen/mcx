@@ -1,23 +1,25 @@
 use crate::error::AppError;
 use crate::models::subscription::{
     BalanceResp, BalanceTransactionResp, RECHARGE_GOODS_TITLE, RECHARGE_SKU_ID, RECHARGE_SPU_ID,
+    SubscriptionRecordListItem, SubscriptionRecordListResponse, SubscriptionRecordQuery,
 };
-use crate::routes::admin::auth::check_admin;
+use crate::routes::admin::auth::authorize_admin;
+use crate::routes::admin::permissions::{SUBSCRIPTION_RECORD_VIEW, SUBSCRIPTION_VIEW};
 use crate::routes::ApiResponse;
-use crate::services::account;
 use crate::services::jk_pay;
+use crate::services::{account, secret};
 use crate::state::AppState;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
     Json,
 };
 use serde::Serialize;
+use sqlx::{MySql, QueryBuilder};
 use std::sync::Arc;
 
-const AUTO_RECHARGE_AMOUNT: i64 = 200_000; // 200000 分 = 2000 元
+const AUTO_RECHARGE_AMOUNT: i64 = 200_000;
 
-/// POST /api/admin/subscription/auto-recharge 的响应
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoRechargeResp {
@@ -37,13 +39,72 @@ pub struct AutoRechargeUserResult {
     pub external_order_no: Option<String>,
 }
 
+#[derive(sqlx::FromRow)]
+struct ExistingRechargeOrder {
+    id: u64,
+    status: i8,
+    external_order_no: Option<String>,
+}
+
+async fn resolve_existing_auto_recharge(
+    state: &AppState,
+    openid: &str,
+    request_hash: &str,
+) -> Result<Option<(i64, Option<String>)>, AppError> {
+    let existing = sqlx::query_as::<_, ExistingRechargeOrder>(
+        "SELECT id, status, external_order_no FROM orders WHERE request_hash = ? ORDER BY id DESC LIMIT 1",
+    )
+    .bind(request_hash)
+    .fetch_optional(&state.db)
+    .await?;
+
+    let Some(order) = existing else {
+        return Ok(None);
+    };
+
+    match order.status {
+        0 | 1 => Err(AppError::BadRequest(
+            "Recharge is already in progress, please do not submit it again".to_string(),
+        )),
+        3 => {
+            #[derive(sqlx::FromRow)]
+            struct TxRow {
+                balance_after: i64,
+            }
+
+            let tx = sqlx::query_as::<_, TxRow>(
+                "SELECT balance_after FROM balance_transactions \
+                 WHERE request_hash = ? AND status = 1 \
+                 ORDER BY id DESC LIMIT 1",
+            )
+            .bind(request_hash)
+            .fetch_optional(&state.db)
+            .await?;
+
+            let balance = match tx {
+                Some(row) => row.balance_after,
+                None => account::current_balance(state, openid).await?,
+            };
+
+            Ok(Some((balance, order.external_order_no)))
+        }
+        4 => {
+            sqlx::query("UPDATE orders SET status = 4 WHERE id = ? AND status = 4")
+                .bind(order.id)
+                .execute(&state.db)
+                .await?;
+            Ok(None)
+        }
+        _ => Ok(None),
+    }
+}
+
 /// POST /api/admin/subscription/auto-recharge
-/// 由外部 cron 在每年 6 月 1 日调用，对所有开启订阅的用户自动扣款 2000 元
 pub async fn auto_recharge(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<AutoRechargeResp>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[SUBSCRIPTION_VIEW]).await?;
 
     tracing::info!("[AutoRecharge] starting auto-recharge job");
 
@@ -51,13 +112,10 @@ pub async fn auto_recharge(
     struct UserRow {
         openid: String,
         id_card_number: String,
-        payment_password: String,
     }
 
     let users = sqlx::query_as::<_, UserRow>(
-        "SELECT openid, id_card_number, payment_password \
-         FROM wechat_users \
-         WHERE id_card_number != '' AND payment_password != ''",
+        "SELECT openid, id_card_number FROM wechat_users WHERE id_card_number != '' AND payment_password != ''",
     )
     .fetch_all(&state.db)
     .await?;
@@ -65,44 +123,71 @@ pub async fn auto_recharge(
     tracing::info!("[AutoRecharge] found {} eligible users", users.len());
 
     let total = users.len();
-    let mut results: Vec<AutoRechargeUserResult> = Vec::with_capacity(total);
+    let mut results = Vec::with_capacity(total);
     let mut success_count = 0usize;
     let mut fail_count = 0usize;
     let mut skipped_count = 0usize;
 
     for user in users {
-        // 查询该用户最新订阅记录
+        let openid = user.openid.clone();
+
         let latest_action: Option<i8> = sqlx::query_scalar(
             "SELECT action FROM subscription_records WHERE openid = ? ORDER BY id DESC LIMIT 1",
         )
-        .bind(&user.openid)
+        .bind(&openid)
         .fetch_optional(&state.db)
         .await?;
 
-        // 无订阅记录或最新 action=0 则跳过
         if latest_action != Some(1) {
             tracing::info!(
                 "[AutoRecharge] openid={} skipped (action={:?})",
-                user.openid,
+                openid,
                 latest_action
             );
             skipped_count += 1;
             continue;
         }
 
-        // 调用 jk_pay 扣款
-        let pay_result = jk_pay::jk_pay(
-            &mut state.redis.clone(),
-            &state.jk_seller_username,
-            &state.jk_seller_password,
-            &user.id_card_number,
-            &user.payment_password,
-            AUTO_RECHARGE_AMOUNT,
-        )
-        .await;
+        let (_, payment_password) =
+            match account::id_card_and_payment_password(&state, &openid).await {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::warn!("[AutoRecharge] openid={} skipped: {}", openid, e);
+                    skipped_count += 1;
+                    continue;
+                }
+            };
 
-        // 先创建充值订单（status=0 待付款）
-        let user_id = account::user_id_by_openid(&state, &user.openid).await?;
+        if payment_password.is_empty() || user.id_card_number.is_empty() {
+            skipped_count += 1;
+            continue;
+        }
+
+        let request_hash = secret::recharge_request_hash(
+            &state.jwt_secret,
+            &openid,
+            AUTO_RECHARGE_AMOUNT,
+            &payment_password,
+        );
+
+        if let Some((_balance_after, external_order_no)) =
+            resolve_existing_auto_recharge(&state, &openid, &request_hash).await?
+        {
+            tracing::info!(
+                "[AutoRecharge] openid={} reused existing successful recharge",
+                openid
+            );
+            success_count += 1;
+            results.push(AutoRechargeUserResult {
+                openid,
+                success: true,
+                fail_reason: None,
+                external_order_no,
+            });
+            continue;
+        }
+
+        let user_id = account::user_id_by_openid(&state, &openid).await?;
         let order_no = format!(
             "RC{}{:04}",
             chrono::Utc::now().format("%Y%m%d%H%M%S%3f"),
@@ -123,24 +208,20 @@ pub async fn auto_recharge(
                 .unwrap_or_default();
 
         let mut tx = state.db.begin().await?;
-
         let order_insert = sqlx::query(
-            "INSERT INTO orders (order_no, user_id, status, total_amount, paid_amount, \
-             discount_amount, remark) VALUES (?, ?, 0, ?, 0, 0, ?)",
+            "INSERT INTO orders (order_no, user_id, status, total_amount, paid_amount, discount_amount, remark, request_hash) VALUES (?, ?, 0, ?, 0, 0, ?, ?)",
         )
         .bind(&order_no)
         .bind(user_id)
         .bind(AUTO_RECHARGE_AMOUNT)
         .bind(&recharge_remark)
+        .bind(&request_hash)
         .execute(&mut *tx)
         .await?;
-
-        let order_id: u64 = order_insert.last_insert_id();
+        let order_id = order_insert.last_insert_id();
 
         sqlx::query(
-            "INSERT INTO order_items (order_id, order_no, spu_id, sku_id, goods_title, \
-             goods_image, spec_info, unit_price, quantity, subtotal) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+            "INSERT INTO order_items (order_id, order_no, spu_id, sku_id, goods_title, goods_image, spec_info, unit_price, quantity, subtotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
         )
         .bind(order_id)
         .bind(&order_no)
@@ -153,57 +234,90 @@ pub async fn auto_recharge(
         .bind(AUTO_RECHARGE_AMOUNT)
         .execute(&mut *tx)
         .await?;
-
         tx.commit().await?;
 
+        let pay_result = jk_pay::jk_pay(
+            &mut state.redis.clone(),
+            &state.jk_seller_username,
+            &state.jk_seller_password,
+            &user.id_card_number,
+            &payment_password,
+            AUTO_RECHARGE_AMOUNT,
+        )
+        .await;
+
         if pay_result.success {
-            // 订单改为已完成（status=3）
-            sqlx::query(
-                "UPDATE orders SET status = 3, paid_amount = ?, external_order_no = ? WHERE id = ?",
+            let mut tx = state.db.begin().await?;
+
+            let updated = sqlx::query(
+                "UPDATE orders SET status = 3, paid_amount = ?, external_order_no = ? WHERE id = ? AND request_hash = ? AND status = 0",
             )
             .bind(pay_result.paid_amount)
             .bind(&pay_result.external_order_no)
             .bind(order_id)
-            .execute(&state.db)
+            .bind(&request_hash)
+            .execute(&mut *tx)
             .await?;
 
-            // upsert 余额账户
+            if updated.rows_affected() == 0 {
+                tx.rollback().await?;
+
+                if let Some((_balance_after, external_order_no)) =
+                    resolve_existing_auto_recharge(&state, &openid, &request_hash).await?
+                {
+                    success_count += 1;
+                    results.push(AutoRechargeUserResult {
+                        openid: openid.clone(),
+                        success: true,
+                        fail_reason: None,
+                        external_order_no,
+                    });
+                    continue;
+                }
+
+                return Err(AppError::InternalError(
+                    "Auto recharge order state changed unexpectedly".to_string(),
+                ));
+            }
+
             sqlx::query(
                 "INSERT INTO balance_accounts (openid, balance) VALUES (?, ?) \
                  ON DUPLICATE KEY UPDATE balance = balance + ?, updated_at = NOW()",
             )
-            .bind(&user.openid)
+            .bind(&openid)
             .bind(AUTO_RECHARGE_AMOUNT)
             .bind(AUTO_RECHARGE_AMOUNT)
-            .execute(&state.db)
+            .execute(&mut *tx)
             .await?;
 
-            // 读取更新后的余额
-            let balance_after = account::current_balance(&state, &user.openid).await?;
+            let balance_after =
+                account::current_balance(&state, &openid).await? + AUTO_RECHARGE_AMOUNT;
 
-            // 写成功流水
             sqlx::query(
                 "INSERT INTO balance_transactions \
-                 (openid, amount, balance_after, `type`, external_order_no, status, remark) \
-                 VALUES (?, ?, ?, 1, ?, 1, '自动充值成功')",
+                 (openid, amount, balance_after, `type`, external_order_no, status, remark, request_hash) \
+                 VALUES (?, ?, ?, 1, ?, 1, '自动充值成功', ?)",
             )
-            .bind(&user.openid)
+            .bind(&openid)
             .bind(AUTO_RECHARGE_AMOUNT)
             .bind(balance_after)
             .bind(&pay_result.external_order_no)
-            .execute(&state.db)
+            .bind(&request_hash)
+            .execute(&mut *tx)
             .await?;
+
+            tx.commit().await?;
 
             tracing::info!(
                 "[AutoRecharge] success openid={} order_no={} balance_after={}",
-                user.openid,
+                openid,
                 order_no,
                 balance_after
             );
 
             success_count += 1;
             results.push(AutoRechargeUserResult {
-                openid: user.openid,
+                openid,
                 success: true,
                 fail_reason: None,
                 external_order_no: pay_result.external_order_no,
@@ -213,39 +327,42 @@ pub async fn auto_recharge(
                 .fail_reason
                 .unwrap_or_else(|| "扣款失败".to_string());
 
-            // 订单改为已取消（status=4），remark 写失败原因
-            sqlx::query("UPDATE orders SET status = 4, remark = ? WHERE id = ?")
-                .bind(&reason)
-                .bind(order_id)
-                .execute(&state.db)
-                .await?;
+            let balance_now = account::current_balance(&state, &openid).await?;
 
-            // 当前余额不变，读取用于记录流水
-            let balance_now = account::current_balance(&state, &user.openid).await?;
+            let mut tx = state.db.begin().await?;
+            sqlx::query(
+                "UPDATE orders SET status = 4, remark = ? WHERE id = ? AND request_hash = ?",
+            )
+            .bind(&reason)
+            .bind(order_id)
+            .bind(&request_hash)
+            .execute(&mut *tx)
+            .await?;
 
-            // 写失败流水
             sqlx::query(
                 "INSERT INTO balance_transactions \
-                 (openid, amount, balance_after, `type`, external_order_no, status, remark) \
-                 VALUES (?, ?, ?, 1, NULL, 0, ?)",
+                 (openid, amount, balance_after, `type`, external_order_no, status, remark, request_hash) \
+                 VALUES (?, ?, ?, 1, NULL, 0, ?, ?)",
             )
-            .bind(&user.openid)
+            .bind(&openid)
             .bind(AUTO_RECHARGE_AMOUNT)
             .bind(balance_now)
             .bind(&reason)
-            .execute(&state.db)
+            .bind(&request_hash)
+            .execute(&mut *tx)
             .await?;
+            tx.commit().await?;
 
             tracing::warn!(
                 "[AutoRecharge] failed openid={} order_no={} reason={}",
-                user.openid,
+                openid,
                 order_no,
                 reason
             );
 
             fail_count += 1;
             results.push(AutoRechargeUserResult {
-                openid: user.openid,
+                openid,
                 success: false,
                 fail_reason: Some(reason),
                 external_order_no: None,
@@ -270,13 +387,98 @@ pub async fn auto_recharge(
     })))
 }
 
+fn append_subscription_record_filters(
+    builder: &mut QueryBuilder<MySql>,
+    query: &SubscriptionRecordQuery,
+) {
+    if let Some(ref openid) = query.openid {
+        if !openid.is_empty() {
+            builder.push(" AND s.openid = ");
+            builder.push_bind(openid.clone());
+        }
+    }
+
+    if let Some(action) = query.action {
+        builder.push(" AND s.action = ");
+        builder.push_bind(action);
+    }
+
+    if let Some(ref start_date) = query.start_date {
+        if !start_date.is_empty() {
+            builder.push(" AND s.created_at >= ");
+            builder.push_bind(start_date.clone());
+        }
+    }
+
+    if let Some(ref end_date) = query.end_date {
+        if !end_date.is_empty() {
+            builder.push(" AND s.created_at < DATE_ADD(");
+            builder.push_bind(end_date.clone());
+            builder.push(", INTERVAL 1 DAY)");
+        }
+    }
+}
+
+/// GET /api/admin/subscription/records
+pub async fn list_subscription_records(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Query(query): Query<SubscriptionRecordQuery>,
+) -> Result<Json<ApiResponse<SubscriptionRecordListResponse>>, AppError> {
+    authorize_admin(&state, &headers, &[SUBSCRIPTION_RECORD_VIEW]).await?;
+
+    let page = query.page.unwrap_or(1).max(1);
+    let page_size = query.page_size.unwrap_or(20).max(1).min(100);
+    let offset = (page - 1) * page_size;
+
+    let mut count_builder = QueryBuilder::<MySql>::new(
+        "SELECT COUNT(*) FROM subscription_records s \
+         LEFT JOIN wechat_users w ON w.openid = s.openid \
+         WHERE 1=1",
+    );
+    append_subscription_record_filters(&mut count_builder, &query);
+    let total: i64 = count_builder.build_query_scalar().fetch_one(&state.db).await?;
+
+    let mut list_builder = QueryBuilder::<MySql>::new(
+        r#"
+        SELECT s.id,
+               s.openid,
+               COALESCE(w.real_name, '') AS real_name,
+               COALESCE(w.phone, '') AS phone,
+               s.action,
+               CASE s.action WHEN 1 THEN '开启' ELSE '关闭' END AS action_label,
+               DATE_FORMAT(s.created_at, '%Y-%m-%d %H:%i:%s') AS created_at
+        FROM subscription_records s
+        LEFT JOIN wechat_users w ON w.openid = s.openid
+        WHERE 1=1
+        "#,
+    );
+    append_subscription_record_filters(&mut list_builder, &query);
+    list_builder.push(" ORDER BY s.id DESC LIMIT ");
+    list_builder.push_bind(page_size as i64);
+    list_builder.push(" OFFSET ");
+    list_builder.push_bind(offset as i64);
+
+    let list = list_builder
+        .build_query_as::<SubscriptionRecordListItem>()
+        .fetch_all(&state.db)
+        .await?;
+
+    Ok(Json(ApiResponse::success(SubscriptionRecordListResponse {
+        list,
+        total,
+        page,
+        page_size,
+    })))
+}
+
 /// GET /api/admin/wechat/users/{openid}/balance
 pub async fn get_user_balance(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     Path(openid): Path<String>,
 ) -> Result<Json<ApiResponse<serde_json::Value>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[SUBSCRIPTION_VIEW]).await?;
 
     let balance = account::current_balance(&state, &openid).await?;
 
@@ -292,7 +494,7 @@ pub async fn get_user_transactions(
     headers: HeaderMap,
     Path(openid): Path<String>,
 ) -> Result<Json<ApiResponse<BalanceResp>>, AppError> {
-    check_admin(&state, &headers).await?;
+    authorize_admin(&state, &headers, &[SUBSCRIPTION_VIEW]).await?;
 
     let balance = account::current_balance(&state, &openid).await?;
     let txs = account::recent_balance_transactions(&state, &openid, 200).await?;
